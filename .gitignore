@@ -30,3 +30,9 @@ pnpm-debug.log*
 .pnpm-store/
 .yarn/cache
 .yarn/install-state.gz
+
+# Playwright
+test-results/
+playwright-report/
+.playwright-mcp/
+.wrangler/
