@@ -5,6 +5,9 @@
         "moduleResolution": "bundler",
         "lib": ["esnext", "dom", "dom.iterable"],
         "types": ["vite/client"],
+        // End-to-end tests import app modules inside the browser by their dev-server URL.
+        "allowImportingTsExtensions": true,
+        "paths": { "/src/*": ["./src/*"], "/tests/*": ["./tests/*"] },
         "strict": true,
         "noUncheckedIndexedAccess": true,
         "verbatimModuleSyntax": true,
@@ -17,5 +20,13 @@
         "noEmit": true,
         "skipLibCheck": true
     },
-    "include": ["src/**/*.ts", "src/**/*.js", "tests/**/*.ts", "lint/**/*.ts", "vite.config.ts"]
+    "include": [
+        "src/**/*.ts",
+        "src/**/*.js",
+        "tests/**/*.ts",
+        "lint/**/*.ts",
+        "vite.config.ts",
+        "eslint.config.ts",
+        "playwright.config.ts"
+    ]
 }

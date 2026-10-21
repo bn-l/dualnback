@@ -1,12 +1,30 @@
+import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite-plus'
 
 // Lint rules mirrored from ../voice-rpg/frontend/vite.config.js — type-aware
 // oxlint + tsgolint (TypeScript 7, the Go compiler), run as
 // `vp check --no-fmt` (the codebase is hand-formatted; oxfmt never touches it).
+// Cross-origin isolation gives performance.now() and event.timeStamp the finest
+// resolution the browser allows. Every asset is same-origin, so nothing breaks.
+const crossOriginIsolation = {
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Embedder-Policy': 'require-corp',
+}
+
 export default defineConfig({
     build: {
         outDir: 'dist',
         emptyOutDir: true,
+    },
+
+    plugins: [tailwindcss()],
+
+    server: { headers: crossOriginIsolation },
+    preview: { headers: crossOriginIsolation },
+
+    test: {
+        include: ['tests/unit/**/*.test.ts'],
+        environment: 'node',
     },
 
     lint: {
