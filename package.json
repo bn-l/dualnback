@@ -1,0 +1,17 @@
+{
+  "name": "dualnback",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "vp test",
+    "dev": "vp dev",
+    "build": "vp build",
+    "check": "vp check --no-fmt"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vite-plus": "^1.3.0"
+  },
+  "private": true
+}

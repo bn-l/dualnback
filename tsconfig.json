@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "target": "esnext",
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "lib": ["esnext", "dom", "dom.iterable"],
+        "types": ["vite/client"],
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+        "verbatimModuleSyntax": true,
+        "isolatedModules": true,
+        // Nothing here is JS. These stay so that a .js file which sneaks in is
+        // type-checked like everything else rather than silently skipped —
+        // which is what allowJs alone would do.
+        "allowJs": true,
+        "checkJs": true,
+        "noEmit": true,
+        "skipLibCheck": true
+    },
+    "include": ["src/**/*.ts", "src/**/*.js", "tests/**/*.ts", "vite.config.ts"]
+}
