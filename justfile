@@ -56,6 +56,10 @@ sounds voice="Samantha":
     trash "$work"
     ls -l public/sounds
 
+# Redraw public/og.png, the link preview image, from scripts/og-image.html.
+og:
+    node scripts/og-image.ts
+
 # Remove build and test output.
 clean:
     trash dist test-results playwright-report 2>/dev/null || true

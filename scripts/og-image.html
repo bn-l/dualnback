@@ -1,0 +1,110 @@
+<!doctype html>
+<!-- The link preview image (public/og.png), drawn in the app's own look: its palette, its
+     typeface and the mockup's board. Rendered at 1200x630 by scripts/og-image.ts, so every
+     size here is in vw and stays proportional to the image. -->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <style>
+            @font-face {
+                font-family: 'Figtree';
+                font-weight: 400;
+                src: url('../node_modules/@fontsource/figtree/files/figtree-latin-400-normal.woff2') format('woff2');
+            }
+
+            @font-face {
+                font-family: 'Figtree';
+                font-weight: 700;
+                src: url('../node_modules/@fontsource/figtree/files/figtree-latin-700-normal.woff2') format('woff2');
+            }
+
+            :root {
+                --bg: #FAF9F6;
+                --surface: #E8E7E3;
+                --ink: #414450;
+                --quiet: #62656E;
+                --position: #FF9C73;
+                --cell: 8.6vw;
+                --gap: 0.9vw;
+            }
+
+            body {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 6vw;
+                align-items: center;
+                box-sizing: border-box;
+                width: 100vw;
+                height: 100vh;
+                margin: 0;
+                padding: 0 7vw;
+                background: var(--bg);
+                color: var(--ink);
+                font-family: 'Figtree', sans-serif;
+            }
+
+            h1 {
+                margin: 0 0 2.4vw;
+                font-size: 7.6vw;
+                line-height: 1;
+                letter-spacing: -0.02em;
+            }
+
+            p {
+                margin: 0;
+                font-size: 2.5vw;
+                line-height: 1.35;
+            }
+
+            .quiet {
+                color: var(--quiet);
+            }
+
+            .address {
+                margin-top: 3.6vw;
+                font-size: 2vw;
+                font-weight: 700;
+            }
+
+            .header {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 1.6vw;
+                font-size: 2.4vw;
+                font-weight: 700;
+            }
+
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(3, var(--cell));
+                grid-auto-rows: var(--cell);
+                gap: var(--gap);
+            }
+
+            .grid div {
+                border-radius: calc(var(--cell) * 0.15);
+                background: var(--surface);
+            }
+
+            .grid .lit {
+                background: var(--position);
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>dual n-back</h1>
+            <p>Train your working memory with a chess-style rating that follows your level.</p>
+            <p class="quiet">And find out when and how you play best.</p>
+            <p class="address quiet">nback.bn-l.net</p>
+        </main>
+        <div>
+            <div class="header"><span>2-back</span><span>12 / 20</span></div>
+            <div class="grid">
+                <div></div><div></div><div class="lit"></div>
+                <div></div><div></div><div></div>
+                <div></div><div></div><div></div>
+            </div>
+        </div>
+    </body>
+</html>

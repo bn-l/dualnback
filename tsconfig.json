@@ -27,6 +27,7 @@
         "lint/**/*.ts",
         "vite.config.ts",
         "eslint.config.ts",
-        "playwright.config.ts"
+        "playwright.config.ts",
+        "scripts/**/*.ts"
     ]
 }

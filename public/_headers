@@ -11,3 +11,7 @@
 # keeps Cloudflare's default (max-age=0, must-revalidate), so a new deploy shows at once.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The link preview image is shown by other sites, so it opts out of same-origin-only loading.
+/og.png
+  Cross-Origin-Resource-Policy: cross-origin
