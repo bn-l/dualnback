@@ -1,5 +1,6 @@
 import { definePlugin, defineRule } from '@oxlint/plugins'
 import type { ESTree } from '@oxlint/plugins'
+import { ABSOLUTE_UNIT_MESSAGE, ABSOLUTE_UNITS } from './absolute-units.ts'
 
 // Walks up the parent chain. Used instead of `sourceCode.getAncestors()`, which returns
 // an untyped `Node[]`.
@@ -181,6 +182,47 @@ const noTrivialType = defineRule({
     },
 })
 
+// A number followed by an absolute unit, as in `w-[280px]` or `style="top: 2pt"`. `_` and
+// `-` count as separators because Tailwind writes spaces in arbitrary values as `_`, as in
+// `shadow-[inset_0_0_0_3px_red]`.
+const ABSOLUTE_LENGTH = new RegExp(
+    String.raw`(?<![a-z\d.])\d*\.?\d+(?:${[...ABSOLUTE_UNITS].join('|')})(?![a-z\d])`,
+    'gi',
+)
+
+// Tailwind class strings and inline styles are TS strings, so the CSS linter never sees
+// them. This scans every string literal and template chunk (which covers the markup in
+// `html` templates) for absolute lengths.
+const noAbsoluteUnits = defineRule({
+    meta: {
+        type: 'problem',
+        messages: { absoluteUnit: ABSOLUTE_UNIT_MESSAGE },
+    },
+    create(context) {
+        const check = (node: ESTree.StringLiteral | ESTree.TemplateElement): void => {
+            Array.from(context.sourceCode.getText(node).matchAll(ABSOLUTE_LENGTH)).forEach((match) => {
+                const start = node.start + match.index
+                context.report({
+                    loc: {
+                        start: context.sourceCode.getLocFromIndex(start),
+                        end: context.sourceCode.getLocFromIndex(start + match[0].length),
+                    },
+                    messageId: 'absoluteUnit',
+                    data: { value: match[0] },
+                })
+            })
+        }
+        return {
+            Literal(node) {
+                if (typeof node.value === 'string') {
+                    check(node)
+                }
+            },
+            TemplateElement: check,
+        }
+    },
+})
+
 export default definePlugin({
     meta: { name: 'local' },
     rules: {
@@ -188,5 +230,6 @@ export default definePlugin({
         'no-type-safety-suppression': noTypeSafetySuppression,
         'no-as-const': noAsConst,
         'no-trivial-type': noTrivialType,
+        'no-absolute-units': noAbsoluteUnits,
     },
 })

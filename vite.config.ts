@@ -63,6 +63,9 @@ export default defineConfig({
             'local/no-throw-in-promise-executor': 'error',
             'local/no-type-safety-suppression': 'error',
             'local/no-trivial-type': 'error',
+            // Strings only: class strings and inline styles. The CSS gets the same rule
+            // through ESLint (eslint.config.ts).
+            'local/no-absolute-units': 'error',
 
             // --- type-aware strictness ---
             // allowNullableString: a `string | null` in a conditional is the idiomatic
@@ -104,10 +107,12 @@ export default defineConfig({
         overrides: [
             {
                 // Test expectations are literal by nature — the number IS the assertion.
+                // The browser reports computed sizes in px, so tests compare against px.
                 files: ['tests/**'],
                 rules: {
                     'no-magic-numbers': 'off',
                     'typescript/strict-boolean-expressions': 'off',
+                    'local/no-absolute-units': 'off',
                 },
             },
         ],

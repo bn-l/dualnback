@@ -5,7 +5,7 @@
     "test": "vp test",
     "dev": "vp dev",
     "build": "vp build",
-    "check": "vp check --no-fmt"
+    "check": "vp check --no-fmt && eslint"
   },
   "type": "module",
   "devDependencies": {
