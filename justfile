@@ -60,6 +60,11 @@ sounds voice="Samantha":
 og:
     node scripts/og-image.ts
 
+# Redraw docs/hero.svg, the animation at the top of the README, from scripts/readme-hero.ts.
+# jiti because the script imports the app's own modules, which leave off the .ts.
+hero:
+    npx jiti scripts/readme-hero.ts
+
 # Remove build and test output.
 clean:
     trash dist test-results playwright-report 2>/dev/null || true
