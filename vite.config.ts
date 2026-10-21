@@ -11,6 +11,8 @@ export default defineConfig({
 
     lint: {
         ignorePatterns: ['dist/**'],
+        // Custom rules for CLAUDE.md rules the built-ins don't cover.
+        jsPlugins: ['./lint/local-plugin.ts'],
         options: {
             typeAware: true,
             typeCheck: true,
@@ -25,8 +27,24 @@ export default defineConfig({
             'typescript/no-misused-promises': 'error',
             'typescript/no-explicit-any': 'error',
             // No casts (see CLAUDE.md): bans both `x as T` and `<T>x`. Annotate the
-            // binding or use `satisfies` instead; `as const` is still allowed.
+            // binding or use `satisfies` instead. `as const` is caught by local/no-as-const.
             'typescript/consistent-type-assertions': ['error', { assertionStyle: 'never' }],
+            'typescript/no-non-null-assertion': 'error',
+            // Bans `@ts-expect-error` outright, not just when it lacks a description.
+            'typescript/ban-ts-comment': ['error', { 'ts-expect-error': true }],
+            // Stop `any` from library code leaking in. Without these,
+            // `const user: User = await res.json()` is a cast in disguise.
+            'typescript/no-unsafe-assignment': 'error',
+            'typescript/no-unsafe-return': 'error',
+            'typescript/no-unsafe-argument': 'error',
+            'typescript/no-unsafe-call': 'error',
+            'typescript/no-unsafe-member-access': 'error',
+
+            // --- custom rules (lint/local-plugin.ts) ---
+            'local/no-as-const': 'error',
+            'local/no-throw-in-promise-executor': 'error',
+            'local/no-type-safety-suppression': 'error',
+            'local/no-trivial-type': 'error',
 
             // --- type-aware strictness ---
             // allowNullableString: a `string | null` in a conditional is the idiomatic

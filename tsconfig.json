@@ -17,5 +17,5 @@
         "noEmit": true,
         "skipLibCheck": true
     },
-    "include": ["src/**/*.ts", "src/**/*.js", "tests/**/*.ts", "vite.config.ts"]
+    "include": ["src/**/*.ts", "src/**/*.js", "tests/**/*.ts", "lint/**/*.ts", "vite.config.ts"]
 }
