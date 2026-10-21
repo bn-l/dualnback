@@ -1,0 +1,224 @@
+/* Design rules (PLAN.md): relative units only (rem, em, %, fr and container query units),
+   so everything follows the browser's font size and the window; a 1.25rem type floor; no
+   cards, no hairlines, no outlines, no all caps, no pure white; monospace only for key
+   hints. The look copies ui-mockup.png, down to its typeface (Figtree). Colours come from
+   the palette (ui/palette.ts), which the tuner (backtick) changes live. Every screen fits
+   the viewport; container queries on #root pick the tier. */
+
+@import 'tailwindcss';
+
+/* Only these tokens exist, so nothing falls back to a Tailwind default. */
+@theme {
+    --*: initial;
+    --spacing: 0.25rem;
+    --font-sans: 'Figtree', sans-serif;
+    --font-mono: 'Atkinson Hyperlegible Mono', monospace;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-bold: 700;
+    --text-body: 1.25rem;
+    --text-body--line-height: 1.4;
+    --radius-sm: 0.25rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
+    --radius-full: 9999rem;
+}
+
+/* Palette colours, set on :root by applyPalette. The defaults are the mockup's. */
+@theme inline {
+    --color-bg: var(--bg);
+    --color-surface: var(--surface);
+    --color-ink: var(--ink);
+    --color-quiet: var(--secondary);
+    --color-position: var(--position);
+    --color-sound: var(--sound);
+    --color-chosen: var(--chosen);
+    --color-on-fill: var(--on-fill);
+    --color-surface-down: color-mix(in srgb, var(--surface), var(--ink) 10%);
+    --color-ink-up: color-mix(in srgb, var(--ink), var(--bg) 16%);
+    --color-position-down: color-mix(in srgb, var(--position), var(--ink) 12%);
+    /* The how-to-play tour darkens everything but what it points at, in any palette. */
+    --color-scrim: rgb(0 0 0 / 0.62);
+    --color-icon: color-mix(in srgb, var(--ink) 55%, var(--bg));
+    /* Lilac is too light to draw with on the background, so sound marks are deepened. */
+    --color-sound-mark: color-mix(in oklab, var(--sound), var(--ink) 35%);
+    --color-transparent: transparent;
+}
+
+/* Tiers. Later variants win, so short overrides wide. */
+@custom-variant wide {
+    @container app (width >= 45rem) {
+        @slot;
+    }
+}
+
+/* Too narrow for the name and the round's three top-bar buttons with their keys (a phone
+   width with a mouse, or a window zoomed to 200%). */
+@custom-variant narrow {
+    @container app (width < 24rem) {
+        @slot;
+    }
+}
+
+@custom-variant short {
+    @container app (height < 42rem) {
+        @slot;
+    }
+}
+
+/* Wide and tall enough for the palette column to sit in the right margin. */
+@custom-variant panel {
+    @container app (width >= 84rem) and (height >= 56rem) {
+        @slot;
+    }
+}
+
+@custom-variant coarse {
+    @media (pointer: coarse) {
+        @slot;
+    }
+}
+
+:root {
+    --bg: #FAF9F6;
+    --surface: #E8E7E3;
+    --ink: #414450;
+    --secondary: #62656E;
+    --position: #FF9C73;
+    --sound: #DCD4F5;
+    --chosen: #C9D6C5;
+    --on-fill: #414450;
+}
+
+@layer base {
+    html,
+    body {
+        background: var(--bg);
+        overflow: hidden;
+    }
+
+    #root {
+        position: fixed;
+        inset: 0;
+        container: app / size;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font-sans);
+        font-size: 1.25rem;
+        line-height: 1.4;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    button {
+        cursor: pointer;
+        touch-action: manipulation;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* No focus rings: a focused control takes its hover colour instead (see parts.ts). */
+    :is(button, input, textarea):focus-visible {
+        outline: none;
+    }
+}
+
+/* ---------- type: four roles ---------- */
+
+@utility brand {
+    font-size: 1.375rem;
+    line-height: 1.75rem;
+    font-weight: 700;
+
+    @variant wide {
+        font-size: 1.625rem;
+        line-height: 2rem;
+    }
+}
+
+@utility heading {
+    font-size: 1.75rem;
+    line-height: 2.125rem;
+    font-weight: 700;
+
+    @variant wide {
+        font-size: 2rem;
+        line-height: 2.5rem;
+    }
+}
+
+@utility number {
+    font-size: 4.5rem;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+
+    @variant wide {
+        font-size: 6rem;
+        letter-spacing: -0.02em;
+    }
+
+    @variant short {
+        font-size: 3.5rem;
+    }
+}
+
+/* ---------- frames ---------- */
+
+/* Every screen, the play screen and the full-screen tuner fill the root with the same
+   margins. */
+@utility frame {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    padding: 1rem 1.25rem 1.5rem;
+
+    @variant wide {
+        padding: 1.75rem 3.75rem 3.5rem;
+    }
+
+    @variant short {
+        padding-top: 0.75rem;
+        padding-bottom: 1rem;
+    }
+}
+
+/* The space between the top bar and what follows it. */
+@utility after-bar {
+    margin-bottom: 0.5rem;
+
+    @variant wide {
+        margin-bottom: 1.5rem;
+    }
+
+    @variant short {
+        margin-bottom: 0;
+    }
+}
+
+/* ---------- the play board ---------- */
+
+/* The play screen copies ui-mockup.png. Everything on it is a share of the grid cell, and
+   the cell is the largest that fits the play area (a size container) both ways:
+     across: three cells and four gaps, the answers reaching one gap past the grid each
+       side, so 3.4 cells;
+     down: two lines of Heading text (5rem), the smallest answer height held back
+       (3.5rem), and 4.92 cells of grid, gaps and answers. */
+@utility play-area {
+    container: board / size;
+}
+
+@utility play-board {
+    --cell: clamp(3.5rem, min(100cqw / 3.4, (100cqh - 8.5rem) / 4.92), 10rem);
+    --gap: max(0.5rem, var(--cell) * 0.1);
+    --cell-radius: calc(var(--cell) * 0.15);
+    --header-gap: max(0.75rem, var(--cell) * 0.22);
+    --instruction-gap: max(1rem, var(--cell) * 0.68);
+    --answer-gap: max(0.75rem, var(--cell) * 0.3);
+    --answer: clamp(3.5rem, var(--cell) * 0.52, 4.75rem);
+    --answer-radius: calc(var(--answer) * 0.32);
+    --answers-apart: max(0.5rem, var(--cell) * 0.28);
+    --row: calc(var(--cell) * 3 + var(--gap) * 4);
+}
