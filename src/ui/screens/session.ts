@@ -6,6 +6,7 @@ import {
     endSession,
     finishBaseline,
     nextStep,
+    playNextRound,
     saveNote,
     sessionStart,
     setSound,
@@ -203,7 +204,7 @@ export const ResultsScreen = (): View => {
     const footer = Actions(
         finished
             ? Button({ label: 'Finish session', hotkey: 'Enter', primary: true, onClick: () => void endSession() })
-            : Button({ label: 'Next round', hotkey: 'Enter', primary: true, onClick: () => go({ name: 'play' }) }),
+            : Button({ label: 'Next round', hotkey: 'Enter', primary: true, onClick: () => void playNextRound() }),
         scored === null ? null : Button({ label: 'Details', hotkey: 'd', onClick: () => go({ name: 'detail' }) }),
         finished ? null : Button({ label: 'End session', hotkey: 'Escape', onClick: () => void endSession() }),
     )

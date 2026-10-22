@@ -55,6 +55,9 @@ export interface RunOptions {
 export interface RunningRound {
     done: Promise<RoundCapture>
     quit: () => void
+    // What quitting now would capture, without stopping: what's saved as the round goes, so a
+    // refresh or a closed tab loses at most the last trial.
+    snapshot: () => RoundCapture
     // Records the sound button being pressed, for the trials it affects.
     soundChanged: (on: boolean) => void
 }
@@ -110,9 +113,38 @@ export const runRound = ({ bank, planned, intervalMs, cells, buttons, controlKey
         state.lit = null
     }
 
+    // The browser reports a state change after the fact, so the resume that the tap starting
+    // the round makes arrives here once the round is under way. Only real changes count.
+    let audioState = context.state
     const onAudioState = (): void => {
+        if (context.state === audioState) {
+            return
+        }
+        audioState = context.state
         audioEvents.push({ type: context.state === 'running' ? 'audio-running' : 'audio-interrupted', at: performance.now() })
         log.warn('round', 'audio state changed mid-round', context.state)
+    }
+
+    // The round as it stands: all of it if completed, else up to the trial showing now. Copies,
+    // so a snapshot taken mid-round doesn't change as the round goes on.
+    const captureNow = (completed: boolean): RoundCapture => {
+        const reached = completed ? planned.length - 1 : state.shown
+        return {
+            perfStart,
+            perfEnd: performance.now(),
+            completed,
+            quitAtTrial: completed ? null : Math.max(0, state.shown),
+            trialsRun: reached + 1,
+            refreshHz: frameIntervals.length === 0 ? null : MS_PER_SECOND / typicalFrame(),
+            // Sounds play even while the page is hidden, so trials that never got a frame
+            // still have a sound onset: the scheduled one.
+            timings: timings.map((timing, index) => ({
+                ...timing,
+                audioOnset: timing.audioOnset ?? (index <= reached ? timing.scheduledOnset : null),
+            })),
+            presses: (state.capture?.presses ?? []).map((press) => ({ ...press })),
+            focusEvents: [...(state.capture?.focusEvents ?? []), ...audioEvents].sort((a, b) => a.at - b.at),
+        }
     }
 
     const finish = (completed: boolean): void => {
@@ -130,23 +162,7 @@ export const runRound = ({ bank, planned, intervalMs, cells, buttons, controlKey
         if (!completed) {
             sources.forEach((source) => source.stop())
         }
-        const reached = completed ? planned.length - 1 : state.shown
-        resolve({
-            perfStart,
-            perfEnd: performance.now(),
-            completed,
-            quitAtTrial: completed ? null : Math.max(0, state.shown),
-            trialsRun: reached + 1,
-            refreshHz: frameIntervals.length === 0 ? null : MS_PER_SECOND / typicalFrame(),
-            // Sounds play even while the page is hidden, so trials that never got a frame
-            // still have a sound onset: the scheduled one.
-            timings: timings.map((timing, index) => ({
-                ...timing,
-                audioOnset: timing.audioOnset ?? (index <= reached ? timing.scheduledOnset : null),
-            })),
-            presses: state.capture?.presses ?? [],
-            focusEvents: [...(state.capture?.focusEvents ?? []), ...audioEvents].sort((a, b) => a.at - b.at),
-        })
+        resolve(captureNow(completed))
     }
 
     const frame = (now: number): void => {
@@ -203,6 +219,7 @@ export const runRound = ({ bank, planned, intervalMs, cells, buttons, controlKey
     return {
         done: promise,
         quit: () => finish(false),
+        snapshot: () => captureNow(false),
         soundChanged: (on) => {
             audioEvents.push({ type: on ? 'sound-on' : 'sound-off', at: performance.now() })
             log.info('round', on ? 'sound turned on' : 'sound turned off', { trial: state.shown })

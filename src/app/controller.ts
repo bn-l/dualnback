@@ -1,18 +1,21 @@
 import { createEffect, createRoot, on, untrack } from 'solid-js'
 import { differenceInCalendarDays } from 'date-fns'
 import { median } from 'simple-statistics'
-import { loadDataset } from '../data/dataset'
+import { type Dataset, loadDataset } from '../data/dataset'
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../data/db'
 import type {
     DifficultyStep,
     ExperimentAssignment,
     ExperimentRecord,
+    FocusEventRecord,
     Forecast,
+    PressRecord,
     RatingState,
     RoundRecord,
     ScreenViewRecord,
     Sense,
     SessionRecord,
+    TrialRecord,
 } from '../data/schema'
 import { stepForRating, stretchStep } from '../domain/difficulty'
 import { conditionFor } from '../domain/experiments'
@@ -21,6 +24,7 @@ import { forecastSession } from '../domain/forecast'
 import { dayKey } from '../domain/format'
 import { afterIdleDays, expectedResult, rateRound, resultFromAccuracy } from '../domain/rating'
 import { scoreRound } from '../domain/scoring'
+import { roundEndedAt, settleSessions } from '../domain/sessions'
 import { GENERATOR_VERSION, generateRound, trialCountFor } from '../domain/sequence'
 import { statFindings } from '../domain/stats'
 import { LETTERS } from '../domain/letters'
@@ -57,25 +61,6 @@ const errorText = (error: unknown): string => error instanceof Error ? error.mes
 const report = (scope: string, what: string) => (error: unknown): void => {
     log.error(scope, what, error)
     setProblem(`${what}: ${errorText(error)}`)
-}
-
-// ---------- startup ----------
-
-export const loadApp = async (): Promise<void> => {
-    const [loadedSettings, loadedDataset, loadedFindings] = await Promise.all([
-        loadSettings(store),
-        loadDataset(store),
-        store.findings.toArray(),
-    ])
-    setSettings(loadedSettings)
-    setDataset(loadedDataset)
-    setFindingRecords(loadedFindings)
-    log.info('app', 'loaded', { rounds: loadedDataset.rounds.length, sessions: loadedDataset.sessions.length })
-    createLetterBank()
-        .then((bank) => {
-            setLetterBank(bank)
-        })
-        .catch(report('audio', 'The letter sounds could not load'))
 }
 
 // Time spent on each screen, for the habits stats.
@@ -171,24 +156,40 @@ const createSession = async (): Promise<void> => {
     log.info('session', 'started', { idleDays, rating: rating.rating, forecast: record.forecast })
 }
 
-export const beginSession = async (): Promise<void> => {
+// Audio can only start inside a tap or key press, so the presses that start a session and
+// each round wake it. After a reload it stays asleep until then.
+const wakeAudio = async (): Promise<boolean> => {
     const bank = letterBank()
     if (bank === null) {
         setProblem('The letter sounds are still loading. Try again in a moment.')
-        return
+        return false
     }
-    // Starting audio has to happen inside the tap or key press that starts the session.
     await resumeAudio(bank)
-    go({ name: needsBaseline() ? 'baseline' : 'ready' })
+    return true
+}
+
+export const beginSession = async (): Promise<void> => {
+    if (await wakeAudio()) {
+        go({ name: needsBaseline() ? 'baseline' : 'ready' })
+    }
 }
 
 // The session itself starts with its first round, so leaving from the round intro leaves
 // nothing behind.
 export const startFirstRound = async (): Promise<void> => {
+    if (!await wakeAudio()) {
+        return
+    }
     if (session() === null) {
         await createSession()
     }
     go({ name: 'play' })
+}
+
+export const playNextRound = async (): Promise<void> => {
+    if (await wakeAudio()) {
+        go({ name: 'play' })
+    }
 }
 
 export const finishBaseline = async (capture: BaselineCapture | null): Promise<void> => {
@@ -258,12 +259,21 @@ interface RoundPlan {
     planned: ReturnType<typeof generateRound>
 }
 
-const saveRound = async (plan: RoundPlan, capture: RoundCapture): Promise<void> => {
-    const { round: draft, planned } = plan
+interface RoundRecords {
+    round: RoundRecord
+    trials: TrialRecord[]
+    presses: PressRecord[]
+    focusEvents: FocusEventRecord[]
+    muted: boolean
+}
+
+// Every record a round makes, from a capture taken at its end or partway through.
+const roundRecords = (plan: RoundPlan, capture: RoundCapture): RoundRecords => {
+    const draft = { ...plan.round, perfStart: capture.perfStart }
     const ids = { roundId: draft.id, sessionId: draft.sessionId }
     const trials = buildTrialRecords({
         ...ids,
-        planned,
+        planned: plan.planned,
         timings: capture.timings,
         presses: capture.presses,
         focusEvents: capture.focusEvents,
@@ -287,16 +297,23 @@ const saveRound = async (plan: RoundPlan, capture: RoundCapture): Promise<void> 
     const muted = trials.some(({ flags }) => flags.muted === true)
     const result = accuracy === null || muted ? null : resultFromAccuracy(accuracy)
     const ratingAfter = result === null ? null : rateRound(draft.ratingBefore, draft.step, result)
-    const round: RoundRecord = { ...unscored, accuracy, result, ratingAfter }
-    const now = Date.now()
+    return { round: { ...unscored, accuracy, result, ratingAfter }, trials, presses, focusEvents, muted }
+}
 
+const writeRound = async ({ round, trials, presses, focusEvents }: RoundRecords): Promise<void> => {
+    await store.rounds.put(round)
+    await store.trials.bulkPut(trials)
+    await store.presses.bulkPut(presses)
+    await store.focusEvents.bulkPut(focusEvents)
+}
+
+const saveRound = async (records: RoundRecords): Promise<void> => {
+    const { round, trials, presses, focusEvents, muted } = records
+    const now = Date.now()
     await store.transaction('rw', [store.rounds, store.trials, store.presses, store.focusEvents, store.settings], async () => {
-        await store.rounds.put(round)
-        await store.trials.bulkPut(trials)
-        await store.presses.bulkPut(presses)
-        await store.focusEvents.bulkPut(focusEvents)
-        if (ratingAfter !== null) {
-            setSettings(await saveSettings(store, { rating: ratingAfter, ratingUpdatedAt: now }))
+        await writeRound(records)
+        if (round.ratingAfter !== null) {
+            setSettings(await saveSettings(store, { rating: round.ratingAfter, ratingUpdatedAt: now }))
         }
     })
 
@@ -317,11 +334,26 @@ const saveRound = async (plan: RoundPlan, capture: RoundCapture): Promise<void> 
     if (active !== null) {
         setSession({ ...active, rounds: [...active.rounds, round], lastScored: scored, lastRoundEndedAt: now })
     }
-    log.info('round', 'saved', { accuracy, result, muted, rating: ratingAfter?.rating, presses: presses.length })
+    log.info('round', 'saved', { accuracy: round.accuracy, result: round.result, muted, rating: round.ratingAfter?.rating, presses: presses.length })
     // Someone who left the round for settings returns to the results from there.
     if (screen().name === 'play') {
         go({ name: 'results' })
     }
+}
+
+// A round in progress is saved as it goes: as what pausing at that moment would save, at
+// its start, just after each square goes out, and whenever the page is hidden or unloaded.
+// So a refresh, a closed tab or a crash loses at most the trial that was showing.
+const CHECKPOINT_DELAY_MS = 600
+
+interface RoundProgress {
+    writes: Promise<void>
+    ended: boolean
+    running: RunningRound | null
+}
+
+const saveProgress = async (records: RoundRecords): Promise<void> => {
+    await store.transaction('rw', [store.rounds, store.trials, store.presses, store.focusEvents], async () => writeRound(records))
 }
 
 export const startRound = (elements: RoundElements): RunningRound | null => {
@@ -356,13 +388,51 @@ export const startRound = (elements: RoundElements): RunningRound | null => {
             expected: expectedResult(ratingBefore, step.rating),
         },
     }
+
+    // Writes run one after another and the final save comes last, so a late checkpoint
+    // can't overwrite the finished round.
+    const progress: RoundProgress = { writes: Promise.resolve(), ended: false, running: null }
+    const enqueue = (write: () => Promise<void>): void => {
+        progress.writes = progress.writes.then(write)
+    }
+    const checkpoint = (): void => enqueue(async () => {
+        const capture = progress.ended ? null : progress.running?.snapshot()
+        if (capture !== null && capture !== undefined) {
+            await saveProgress(roundRecords(plan, capture))
+                .catch((error: unknown) => log.error('round', 'progress could not be saved', error))
+        }
+    })
+    const onHidden = (): void => {
+        if (document.visibilityState === 'hidden') {
+            checkpoint()
+        }
+    }
+
     const soundOn = settings().soundOn
     setSoundOn(bank, soundOn)
-    const running = runRound({ bank, planned, intervalMs: step.intervalMs, soundOn, ...elements })
-    running.done
-        .then(async (capture) => saveRound({ ...plan, round: { ...plan.round, perfStart: capture.perfStart } }, capture))
+    progress.running = runRound({
+        bank,
+        planned,
+        intervalMs: step.intervalMs,
+        soundOn,
+        ...elements,
+        onTrial: (index) => {
+            elements.onTrial(index)
+            setTimeout(checkpoint, CHECKPOINT_DELAY_MS)
+        },
+    })
+    checkpoint()
+    document.addEventListener('visibilitychange', onHidden)
+    window.addEventListener('pagehide', checkpoint)
+    progress.running.done
+        .then((capture) => {
+            progress.ended = true
+            document.removeEventListener('visibilitychange', onHidden)
+            window.removeEventListener('pagehide', checkpoint)
+            enqueue(async () => saveRound(roundRecords(plan, capture)).catch(report('round', 'The round could not be saved')))
+        })
         .catch(report('round', 'The round could not be saved'))
-    return running
+    return progress.running
 }
 
 // ---------- session end ----------
@@ -461,4 +531,59 @@ export const deleteEverything = async (): Promise<void> => {
     setDataset(await loadDataset(store))
     log.warn('app', 'all data deleted')
     go({ name: 'home' })
+}
+
+// ---------- startup ----------
+
+// Back in the session that was open when the page went away: its rounds so far (the last
+// one saved as far as it got), on that round's results.
+const resumeSession = (record: SessionRecord, data: Dataset): void => {
+    const rounds = data.rounds.filter(({ sessionId }) => sessionId === record.id).sort((a, b) => a.index - b.index)
+    const last = rounds.at(-1)
+    setSession({
+        record,
+        rounds,
+        lastScored: last === undefined ? null : data.scored.find(({ round }) => round.id === last.id) ?? null,
+        lastRoundEndedAt: last === undefined ? null : roundEndedAt(last),
+    })
+    go(last === undefined ? { name: 'ready' } : { name: 'results' })
+    log.info('session', 'resumed after the page went away', { rounds: rounds.length, lastCompleted: last?.completed })
+}
+
+// Sessions left open when the page went away: the latest is picked up again if it was in
+// use lately, the rest are closed where they stopped (see domain/sessions.ts).
+const settleOpenSessions = async (loaded: Dataset): Promise<{ data: Dataset; resume: SessionRecord | null }> => {
+    const { resume, closed } = settleSessions(loaded.sessions, loaded.rounds, Date.now())
+    if (closed.length === 0) {
+        return { data: loaded, resume }
+    }
+    await store.sessions.bulkPut(closed)
+    log.info('session', 'closed sessions left open', closed.map(({ id, endedAt }) => ({ id, endedAt })))
+    const byId = new Map(closed.map((record) => [record.id, record]))
+    return { data: { ...loaded, sessions: loaded.sessions.map((record) => byId.get(record.id) ?? record) }, resume }
+}
+
+export const loadApp = async (): Promise<void> => {
+    const [loadedSettings, loadedDataset, loadedFindings] = await Promise.all([
+        loadSettings(store),
+        loadDataset(store),
+        store.findings.toArray(),
+    ])
+    setSettings(loadedSettings)
+    setFindingRecords(loadedFindings)
+    const { data, resume } = await settleOpenSessions(loadedDataset)
+    setDataset(data)
+    log.info('app', 'loaded', { rounds: data.rounds.length, sessions: data.sessions.length })
+    if (resume !== null) {
+        resumeSession(resume, data)
+    }
+    // Closing sessions changes what the findings are drawn from.
+    if (data !== loadedDataset) {
+        void refreshFindings().catch(report('findings', 'Findings could not be updated'))
+    }
+    createLetterBank()
+        .then((bank) => {
+            setLetterBank(bank)
+        })
+        .catch(report('audio', 'The letter sounds could not load'))
 }
