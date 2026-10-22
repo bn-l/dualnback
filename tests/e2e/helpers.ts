@@ -12,15 +12,20 @@ export const watchErrors = (page: Page): string[] => {
     return errors
 }
 
-export const openApp = async (page: Page): Promise<string[]> => {
-    const errors = watchErrors(page)
-    await page.goto('/')
-    await expect(page.locator('[data-screen="home"]')).toBeVisible()
-    // waitForFunction would take an async check's Promise as already true, so poll instead.
+// The data and the letter sounds are loaded. waitForFunction would take an async check's
+// Promise as already true, so poll instead.
+export const appLoaded = async (page: Page): Promise<void> => {
     await expect.poll(async () => page.evaluate(async () => {
         const { letterBank, dataset } = await import('/src/app/state.ts')
         return letterBank() !== null && dataset() !== null
     })).toBe(true)
+}
+
+export const openApp = async (page: Page): Promise<string[]> => {
+    const errors = watchErrors(page)
+    await page.goto('/')
+    await expect(page.locator('[data-screen="home"]')).toBeVisible()
+    await appLoaded(page)
     return errors
 }
 
@@ -74,3 +79,11 @@ export const litCell = async (page: Page): Promise<number> =>
 
 // Text that means a number went wrong somewhere on the way to the screen.
 export const BROKEN_TEXT = /\bNaN\b|\bundefined\b|\bInfinity\b|\[object|\bnull\b/
+
+// Waits until the round has shown at least this many squares.
+export const reachTrial = async (page: Page, trial: number): Promise<void> => {
+    await page.waitForFunction((expected) => {
+        const counter = document.querySelector('[data-screen="play"] .counter')
+        return Number((counter?.textContent ?? '0').split('/')[0]) >= expected
+    }, trial, { timeout: 15_000 })
+}
