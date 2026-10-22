@@ -102,7 +102,7 @@ export const BaselineScreen = (): View => {
                 case 'running':
                     return Actions(Button({ label: 'Skip', hotkey: 'Escape', onClick: skip }))
                 case 'done':
-                    return Actions(Button({ label: 'Continue', hotkey: 'Enter', primary: true, onClick: () => void finishBaseline(result()) }))
+                    return Actions(Button({ label: 'Continue', hotkey: 'Enter', also: 'Escape', primary: true, onClick: () => void finishBaseline(result()) }))
             }
         }),
     })
@@ -203,7 +203,7 @@ export const ResultsScreen = (): View => {
     const finished = (active?.rounds.length ?? 0) >= ROUNDS_PER_SESSION
     const footer = Actions(
         finished
-            ? Button({ label: 'Finish session', hotkey: 'Enter', primary: true, onClick: () => void endSession() })
+            ? Button({ label: 'Finish session', hotkey: 'Enter', also: 'Escape', primary: true, onClick: () => void endSession() })
             : Button({ label: 'Next round', hotkey: 'Enter', primary: true, onClick: () => void playNextRound() }),
         scored === null ? null : Button({ label: 'Details', hotkey: 'd', onClick: () => go({ name: 'detail' }) }),
         finished ? null : Button({ label: 'End session', hotkey: 'Escape', onClick: () => void endSession() }),
@@ -341,6 +341,6 @@ export const SessionEndScreen = (): View => {
                     }
                 }}
             ></textarea>`,
-        footer: Actions(Button({ label: 'Done', hotkey: 'Enter', primary: true, onClick: done })),
+        footer: Actions(Button({ label: 'Done', hotkey: 'Enter', also: 'Escape', primary: true, onClick: done })),
     })
 }

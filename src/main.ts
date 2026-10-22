@@ -8,6 +8,7 @@ import { loadApp, trackScreenViews } from './app/controller'
 import { setProblem } from './app/state'
 import { log } from './log'
 import { App } from './ui/App'
+import { installBackButton } from './ui/history'
 import { installHotkeys } from './ui/hotkeys'
 import { applyPalette, palette } from './ui/palette'
 
@@ -29,7 +30,11 @@ createRoot(() => createRenderEffect(() => applyPalette(palette())))
 installHotkeys()
 trackScreenViews()
 render(App, root)
-loadApp().catch((error: unknown) => {
-    log.error('app', 'failed to load', error)
-    setProblem(`Your data could not be loaded: ${error instanceof Error ? error.message : String(error)}`)
-})
+// Back is handled once loading has settled on the first screen, which is a session's
+// results when one was cut off by a reload.
+loadApp()
+    .catch((error: unknown) => {
+        log.error('app', 'failed to load', error)
+        setProblem(`Your data could not be loaded: ${error instanceof Error ? error.message : String(error)}`)
+    })
+    .finally(installBackButton)

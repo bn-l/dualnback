@@ -62,6 +62,9 @@ export interface ButtonOptions {
     label: Live<string>
     // What presses it (see hotkeys.ts) and what its hint shows.
     hotkey: string
+    // A second key that presses it without a hint of its own: Escape, on screens whose only
+    // way on is forward, so that Escape (and the browser's Back) still moves on.
+    also?: string
     onClick: () => void
     primary?: boolean
     // In the highlight colour, for the one thing a newcomer should notice.
@@ -72,7 +75,7 @@ export interface ButtonOptions {
     disabled?: Live<boolean>
 }
 
-export const Button = ({ label, hotkey, onClick, primary = false, accent = false, quiet = false, chosen = false, disabled = false }: ButtonOptions): View =>
+export const Button = ({ label, hotkey, also, onClick, primary = false, accent = false, quiet = false, chosen = false, disabled = false }: ButtonOptions): View =>
     html`<button
         type="button"
         class=${BUTTON}
@@ -80,8 +83,9 @@ export const Button = ({ label, hotkey, onClick, primary = false, accent = false
         data-accent=${accent ? '' : undefined}
         data-quiet=${quiet ? '' : undefined}
         aria-pressed=${() => liveFlag(chosen) ? 'true' : undefined}
-        aria-keyshortcuts=${hotkey}
+        aria-keyshortcuts=${also === undefined ? hotkey : `${hotkey} ${also}`}
         data-hotkey=${hotkey}
+        data-also=${also}
         disabled=${() => liveFlag(disabled)}
         onClick=${onClick}
     ><span class="min-w-0">${() => liveText(label)}</span>${KeyHint(hotkey)}</button>`

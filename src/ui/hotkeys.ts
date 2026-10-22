@@ -25,6 +25,22 @@ const isTyping = (target: EventTarget | null): boolean =>
 // The tuner, when open, owns the keyboard; otherwise the current screen does.
 const scope = (): Element | null => document.querySelector('.tuner') ?? document.querySelector('main[data-screen]')
 
+const matching = (key: string, attribute: string): Element[] =>
+    [...(scope()?.querySelectorAll(`[${attribute}="${CSS.escape(key)}"]`) ?? [])]
+
+// Presses the button the key belongs to on the current screen, as the key itself would;
+// false when there is none. The browser's Back button presses Escape this way.
+export const pressHotkey = (key: string): boolean => {
+    // Inert parts (the tour's pictures of the round's buttons) don't take keys.
+    const target = [...matching(key, 'data-hotkey'), ...matching(key, 'data-also')]
+        .find((element) => element.closest('[inert]') === null)
+    if (target instanceof HTMLElement && !(target instanceof HTMLButtonElement && target.disabled)) {
+        target.click()
+        return true
+    }
+    return false
+}
+
 const onKeyDown = (event: KeyboardEvent): void => {
     // A round in progress has already claimed the key (see engine/capture.ts).
     if (event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey) {
@@ -43,12 +59,8 @@ const onKeyDown = (event: KeyboardEvent): void => {
     if ((key === 'Enter' || key === ' ') && event.target instanceof HTMLButtonElement) {
         return
     }
-    // Inert parts (the tour's pictures of the round's buttons) don't take keys.
-    const target = [...(scope()?.querySelectorAll(`[data-hotkey="${CSS.escape(key)}"]`) ?? [])]
-        .find((element) => element.closest('[inert]') === null)
-    if (target instanceof HTMLElement && !(target instanceof HTMLButtonElement && target.disabled)) {
+    if (pressHotkey(key)) {
         event.preventDefault()
-        target.click()
     }
 }
 

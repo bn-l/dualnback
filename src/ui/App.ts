@@ -15,7 +15,7 @@ const ProblemScreen = (message: string): View => Screen({
     layout: 'centre',
     header: html`<p class="heading">Something went wrong</p>`,
     body: html`<p>${message}</p>`,
-    footer: Actions(Button({ label: 'Dismiss', hotkey: 'Enter', primary: true, onClick: () => setProblem(null) })),
+    footer: Actions(Button({ label: 'Dismiss', hotkey: 'Enter', also: 'Escape', primary: true, onClick: () => setProblem(null) })),
 })
 
 const screenFor = (current: Route): View => {
